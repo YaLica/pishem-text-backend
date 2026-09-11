@@ -1,0 +1,5 @@
+# Не загружай эти файлы в GitHub.
+.env
+instance/*.sqlite3
+__pycache__/
+*.pyc
