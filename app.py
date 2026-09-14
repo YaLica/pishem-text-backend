@@ -179,6 +179,9 @@ def list_works():
     return jsonify(works=[dict(row) for row in rows])
 
 
+MAX_WORKS_PER_USER = 50
+
+
 @app.post("/api/works")
 @login_required
 def create_work():
@@ -190,15 +193,29 @@ def create_work():
     if len(data.encode("utf-8")) > 1_500_000:
         return jsonify(error="Работа слишком большая"), 413
 
-    now = utc_now()
     db = get_db()
+
+    # Не больше MAX_WORKS_PER_USER постов на пользователя. Если лимит уже
+    # достигнут, самый старый по updated_at удаляется автоматически —
+    # чтобы не нужно было чистить вручную.
+    count_row = db.execute(
+        "SELECT COUNT(*) AS c FROM works WHERE user_id = ?", (session["user_id"],)
+    ).fetchone()
+    if count_row["c"] >= MAX_WORKS_PER_USER:
+        oldest = db.execute(
+            "SELECT id FROM works WHERE user_id = ? ORDER BY updated_at ASC LIMIT 1",
+            (session["user_id"],),
+        ).fetchone()
+        if oldest:
+            db.execute("DELETE FROM works WHERE id = ?", (oldest["id"],))
+
+    now = utc_now()
     cur = db.execute(
         "INSERT INTO works(user_id, title, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
         (session["user_id"], title, data, now, now),
     )
     db.commit()
     return jsonify(id=cur.lastrowid, title=title, created_at=now, updated_at=now), 201
-
 
 @app.get("/api/works/<int:work_id>")
 @login_required
