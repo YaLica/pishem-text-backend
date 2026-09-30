@@ -23,10 +23,16 @@ app.config.update(
     MAX_CONTENT_LENGTH=2 * 1024 * 1024,
 )
 
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in FRONTEND_ORIGIN.split(",")
+    if origin.strip()
+]
+
 CORS(
     app,
     supports_credentials=True,
-    origins=[FRONTEND_ORIGIN],
+    origins=ALLOWED_ORIGINS,
 )
 
 
