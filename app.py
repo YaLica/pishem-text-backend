@@ -182,10 +182,10 @@ def list_works():
         "SELECT id, title, created_at, updated_at FROM works WHERE user_id = ? ORDER BY updated_at DESC",
         (session["user_id"],),
     ).fetchall()
-    return jsonify(works=[dict(row) for row in rows])
+    return jsonify(works=[dict(row) for row in rows], count=len(rows), limit=MAX_WORKS_PER_USER)
 
 
-MAX_WORKS_PER_USER = 50
+MAX_WORKS_PER_USER = 20
 
 
 @app.post("/api/works")
@@ -201,19 +201,20 @@ def create_work():
 
     db = get_db()
 
-    # Не больше MAX_WORKS_PER_USER постов на пользователя. Если лимит уже
-    # достигнут, самый старый по updated_at удаляется автоматически —
-    # чтобы не нужно было чистить вручную.
+    # Проверяем лимит и добавляем в одной транзакции: два устройства
+    # не должны одновременно занять последнее свободное место.
+    db.execute("BEGIN IMMEDIATE")
     count_row = db.execute(
         "SELECT COUNT(*) AS c FROM works WHERE user_id = ?", (session["user_id"],)
     ).fetchone()
     if count_row["c"] >= MAX_WORKS_PER_USER:
-        oldest = db.execute(
-            "SELECT id FROM works WHERE user_id = ? ORDER BY updated_at ASC LIMIT 1",
-            (session["user_id"],),
-        ).fetchone()
-        if oldest:
-            db.execute("DELETE FROM works WHERE id = ?", (oldest["id"],))
+        db.rollback()
+        return jsonify(
+            error="Достигнут лимит 20 постов. Удалите ненужный пост или обновите существующий. Сохранённые работы не удалены.",
+            code="works_limit_reached",
+            count=count_row["c"],
+            limit=MAX_WORKS_PER_USER,
+        ), 409
 
     now = utc_now()
     cur = db.execute(
