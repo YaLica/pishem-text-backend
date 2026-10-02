@@ -196,7 +196,7 @@ def create_work():
     data = body.get("data")
     if not isinstance(data, str):
         return jsonify(error="Поле data должно быть строкой JSON"), 400
-    if len(data.encode("utf-8")) > 1_500_000:
+    if len(data.encode("utf-8")) > 15_500_000:
         return jsonify(error="Работа слишком большая"), 413
 
     db = get_db()
@@ -243,7 +243,7 @@ def update_work(work_id):
     data = body.get("data")
     if not isinstance(data, str):
         return jsonify(error="Поле data должно быть строкой JSON"), 400
-    if len(data.encode("utf-8")) > 1_500_000:
+    if len(data.encode("utf-8")) > 15_500_000:
         return jsonify(error="Работа слишком большая"), 413
 
     now = utc_now()
